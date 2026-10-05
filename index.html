@@ -1,1 +1,1229 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WOOF — Command Game</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+    margin:0;
+    background:#090b10;
+    color:#e8eaf0;
+    font-family:Consolas,Monaco,monospace;
+    height:100vh;
+    overflow:hidden;
+}
+.app{
+    height:100vh;
+    display:flex;
+}
+.sidebar{
+    width:230px;
+    background:#0e1118;
+    border-right:1px solid #242936;
+    padding:20px;
+}
+.logo{
+    font-size:26px;
+    font-weight:bold;
+    margin-bottom:5px;
+}
+.sub{
+    color:#777f91;
+    font-size:12px;
+    margin-bottom:25px;
+}
+.stat{
+    background:#151923;
+    border:1px solid #252b38;
+    border-radius:10px;
+    padding:12px;
+    margin-bottom:10px;
+}
+.stat small{
+    color:#747c8e;
+}
+.stat b{
+    display:block;
+    margin-top:5px;
+    font-size:17px;
+}
+.tip{
+    position:absolute;
+    bottom:15px;
+    width:190px;
+    color:#626979;
+    font-size:11px;
+    line-height:1.5;
+}
+.main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+}
+.top{
+    height:62px;
+    border-bottom:1px solid #242936;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+}
+.status{
+    color:#55e68b;
+}
+.console{
+    flex:1;
+    overflow:auto;
+    padding:20px;
+    scroll-behavior:smooth;
+}
+.line{
+    margin-bottom:12px;
+    line-height:1.5;
+    white-space:pre-wrap;
+}
+.command{
+    color:#8b9cff;
+}
+.bot{
+    color:#d7dbe5;
+}
+.good{
+    color:#55e68b;
+}
+.bad{
+    color:#ff6262;
+}
+.gold{
+    color:#ffd45c;
+}
+.dim{
+    color:#6e7585;
+}
+.input-area{
+    border-top:1px solid #242936;
+    padding:14px;
+    background:#0c0f15;
+}
+.input-wrap{
+    display:flex;
+    align-items:center;
+    background:#131720;
+    border:1px solid #2a3040;
+    border-radius:9px;
+    padding:0 12px;
+}
+.prompt{
+    color:#7d8cff;
+    margin-right:8px;
+}
+input{
+    flex:1;
+    background:none;
+    border:0;
+    outline:0;
+    color:#fff;
+    font:inherit;
+    padding:13px 0;
+    min-width:0;
+}
+button{
+    background:#202637;
+    color:#fff;
+    border:1px solid #30384b;
+    border-radius:7px;
+    padding:8px 12px;
+    cursor:pointer;
+}
+button:hover{
+    background:#2b3347;
+}
+@media(max-width:700px){
+    .sidebar{display:none}
+    .console{padding:14px}
+    .top{padding:0 14px}
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<div class="sidebar">
+    <div class="logo">WOOF</div>
+    <div class="sub">COMMAND SIMULATOR</div>
+
+    <div class="stat">
+        <small>BALANCE</small>
+        <b id="sideBalance">0</b>
+    </div>
+
+    <div class="stat">
+        <small>LEVEL</small>
+        <b id="sideLevel">1</b>
+    </div>
+
+    <div class="stat">
+        <small>XP</small>
+        <b id="sideXP">0 / 100</b>
+    </div>
+
+    <div class="stat">
+        <small>WINS / LOSSES</small>
+        <b id="sideWL">0 / 0</b>
+    </div>
+
+    <div class="tip">
+        Type <b>owo help</b> to see all commands.<br><br>
+        Your progress is automatically saved on this device.
+    </div>
+</div>
+
+<div class="main">
+
+<div class="top">
+    <div>WOOF Command Terminal</div>
+    <div class="status">● ONLINE</div>
+</div>
+
+<div class="console" id="console"></div>
+
+<div class="input-area">
+    <div class="input-wrap">
+        <span class="prompt">&gt;</span>
+        <input id="cmd" autocomplete="off" autofocus
+               placeholder="owo help">
+        <button onclick="runInput()">ENTER</button>
+    </div>
+</div>
+
+</div>
+</div>
+
+<script>
+
+/* =========================
+   SAVE DATA
+========================= */
+
+const SAVE_KEY = "woof_command_game_v1";
+
+let game = {
+    balance: 10000,
+    xp: 0,
+    level: 1,
+
+    wins: 0,
+    losses: 0,
+
+    mined: 0,
+    hunted: 0,
+
+    bestBalance: 10000,
+
+    animals: {
+        rabbit: 0,
+        fox: 0,
+        wolf: 0,
+        bear: 0,
+        dragon: 0
+    },
+
+    inventory: {
+        stone: 0,
+        coal: 0,
+        iron: 0,
+        gold: 0,
+        diamond: 0
+    },
+
+    upgrades: {
+        mining: 0,
+        luck: 0,
+        hunting: 0
+    },
+
+    lastDaily: "",
+    history: []
+};
+
+function loadGame(){
+    try{
+        const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
+        if(saved){
+            game = Object.assign(game,saved);
+            game.animals = Object.assign({
+                rabbit:0,fox:0,wolf:0,bear:0,dragon:0
+            },game.animals || {});
+            game.inventory = Object.assign({
+                stone:0,coal:0,iron:0,gold:0,diamond:0
+            },game.inventory || {});
+            game.upgrades = Object.assign({
+                mining:0,luck:0,hunting:0
+            },game.upgrades || {});
+        }
+    }catch(e){}
+}
+
+function saveGame(){
+    localStorage.setItem(SAVE_KEY,JSON.stringify(game));
+    updateUI();
+}
+
+function format(n){
+    return Math.floor(n).toLocaleString("en-US");
+}
+
+function xpNeeded(){
+    return game.level * 100;
+}
+
+function addXP(amount){
+    game.xp += amount;
+
+    while(game.xp >= xpNeeded()){
+        game.xp -= xpNeeded();
+        game.level++;
+
+        print(
+            `🎉 LEVEL UP! You are now level ${game.level}!`,
+            "good"
+        );
+    }
+}
+
+function updateUI(){
+
+    document.getElementById("sideBalance").textContent =
+        "🪙 " + format(game.balance);
+
+    document.getElementById("sideLevel").textContent =
+        game.level;
+
+    document.getElementById("sideXP").textContent =
+        `${game.xp} / ${xpNeeded()}`;
+
+    document.getElementById("sideWL").textContent =
+        `${game.wins} / ${game.losses}`;
+
+    if(game.balance > game.bestBalance){
+        game.bestBalance = game.balance;
+    }
+}
+
+/* =========================
+   TERMINAL
+========================= */
+
+const consoleBox = document.getElementById("console");
+const input = document.getElementById("cmd");
+
+function print(text,type="bot"){
+
+    const div = document.createElement("div");
+    div.className = "line " + type;
+    div.textContent = text;
+
+    consoleBox.appendChild(div);
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+}
+
+function commandEcho(text){
+    print("> " + text,"command");
+}
+
+/* =========================
+   HELP
+========================= */
+
+function help(){
+
+print(`
+AVAILABLE COMMANDS
+
+owo balance
+owo profile
+owo daily
+
+GAME COMMANDS
+owo mine <amount>
+owo cf <amount>
+owo bj <amount>
+owo slots <amount>
+
+ANIMAL COMMANDS
+owo hunt
+owo animals
+owo sell
+
+INVENTORY
+owo inv
+owo inventory
+
+UPGRADES
+owo upgrade
+owo upgrade mining
+owo upgrade luck
+owo upgrade hunting
+
+OTHER
+owo emergency <amount>
+owo help
+clear
+reset
+
+Example:
+owo mine 1000
+owo cf 5000
+owo bj 2500
+`,"bot");
+
+}
+
+/* =========================
+   BALANCE
+========================= */
+
+function balance(){
+
+print(
+`💰 Balance: ${format(game.balance)} coins`,
+"gold"
+);
+
+}
+
+/* =========================
+   PROFILE
+========================= */
+
+function profile(){
+
+print(`
+╔════════ PROFILE ════════╗
+ Balance: ${format(game.balance)}
+ Level: ${game.level}
+ XP: ${game.xp}/${xpNeeded()}
+
+ Wins: ${game.wins}
+ Losses: ${game.losses}
+
+ Mined: ${game.mined}
+ Hunted: ${game.hunted}
+
+ Best Balance: ${format(game.bestBalance)}
+╚═════════════════════════╝
+`);
+
+}
+
+/* =========================
+   MINE
+========================= */
+
+function mine(amount){
+
+if(!validBet(amount)) return;
+
+const luck = game.upgrades.mining * 0.04;
+
+const roll = Math.random();
+
+game.mined++;
+
+if(roll < 0.15 + luck){
+
+    const multiplier =
+        1.5 + Math.random() * 3;
+
+    const profit =
+        Math.floor(amount * multiplier);
+
+    game.balance += profit;
+    game.wins++;
+
+    addXP(15);
+
+    print(
+`⛏️ MINING SUCCESS
+You invested: ${format(amount)}
+You found: +${format(profit)}
+Balance: ${format(game.balance)}`,
+"good"
+    );
+
+}else{
+
+    game.balance -= amount;
+    game.losses++;
+
+    addXP(5);
+
+    print(
+`⛏️ MINING FAILED
+You lost: ${format(amount)}
+Balance: ${format(game.balance)}`,
+"bad"
+    );
+}
+
+saveGame();
+
+}
+
+/* =========================
+   COIN FLIP
+========================= */
+
+function cf(amount){
+
+if(!validBet(amount)) return;
+
+const win =
+    Math.random() < 0.5;
+
+if(win){
+
+    game.balance += amount;
+    game.wins++;
+
+    addXP(10);
+
+    print(
+`🪙 COINFLIP: HEADS
+YOU WON +${format(amount)}
+Balance: ${format(game.balance)}`,
+"good"
+    );
+
+}else{
+
+    game.balance -= amount;
+    game.losses++;
+
+    addXP(5);
+
+    print(
+`🪙 COINFLIP: TAILS
+YOU LOST -${format(amount)}
+Balance: ${format(game.balance)}`,
+"bad"
+    );
+}
+
+saveGame();
+
+}
+
+/* =========================
+   BLACKJACK
+========================= */
+
+function card(){
+
+return Math.floor(Math.random()*10)+2;
+
+}
+
+function bj(amount){
+
+if(!validBet(amount)) return;
+
+let player =
+    card()+card();
+
+let dealer =
+    card()+card();
+
+while(player < 16){
+    player += card();
+}
+
+while(dealer < 17){
+    dealer += card();
+}
+
+if(player > 21){
+
+    game.balance -= amount;
+    game.losses++;
+
+    print(
+`🃏 BLACKJACK
+Your total: ${player}
+Dealer: ${dealer}
+
+💥 BUST!
+You lost ${format(amount)}`,
+"bad"
+    );
+
+}else if(dealer > 21 || player > dealer){
+
+    game.balance += amount;
+    game.wins++;
+
+    addXP(15);
+
+    print(
+`🃏 BLACKJACK
+Your total: ${player}
+Dealer: ${dealer}
+
+🎉 YOU WIN!
++${format(amount)}`,
+"good"
+    );
+
+}else if(player === dealer){
+
+    print(
+`🃏 BLACKJACK
+Your total: ${player}
+Dealer: ${dealer}
+
+DRAW.
+Your coins were returned.`,
+"gold"
+    );
+
+}else{
+
+    game.balance -= amount;
+    game.losses++;
+
+    print(
+`🃏 BLACKJACK
+Your total: ${player}
+Dealer: ${dealer}
+
+YOU LOST ${format(amount)}`,
+"bad"
+    );
+}
+
+saveGame();
+
+}
+
+/* =========================
+   SLOTS
+========================= */
+
+function slots(amount){
+
+if(!validBet(amount)) return;
+
+const symbols = ["🍒","🍋","🔔","⭐","💎"];
+
+const a =
+    symbols[Math.floor(Math.random()*symbols.length)];
+
+const b =
+    symbols[Math.floor(Math.random()*symbols.length)];
+
+const c =
+    symbols[Math.floor(Math.random()*symbols.length)];
+
+let multiplier = 0;
+
+if(a === b && b === c)
+    multiplier = a === "💎" ? 10 : 5;
+
+else if(a === b || b === c || a === c)
+    multiplier = 2;
+
+if(multiplier){
+
+    const reward =
+        amount * multiplier;
+
+    game.balance += reward;
+    game.wins++;
+
+    addXP(12);
+
+    print(
+`🎰 SLOTS
+
+[ ${a} | ${b} | ${c} ]
+
+WIN x${multiplier}
++${format(reward)} coins`,
+"good"
+    );
+
+}else{
+
+    game.balance -= amount;
+    game.losses++;
+
+    print(
+`🎰 SLOTS
+
+[ ${a} | ${b} | ${c} ]
+
+No match.
+-${format(amount)} coins`,
+"bad"
+    );
+}
+
+saveGame();
+
+}
+
+/* =========================
+   HUNT
+========================= */
+
+function hunt(){
+
+const animals = [
+    ["rabbit",25,60],
+    ["fox",50,120],
+    ["wolf",100,250],
+    ["bear",250,600],
+    ["dragon",1000,5000]
+];
+
+const luck =
+    game.upgrades.hunting * 0.03;
+
+let index =
+    Math.floor(
+        Math.random()*animals.length
+    );
+
+if(Math.random() < luck)
+    index = Math.min(index+1,animals.length-1);
+
+const a = animals[index];
+
+game.animals[a[0]]++;
+game.hunted++;
+
+const reward =
+    Math.floor(
+        a[1] +
+        Math.random()*(a[2]-a[1])
+    );
+
+game.balance += reward;
+
+addXP(20);
+
+print(
+`🏹 HUNT SUCCESS
+
+You found a ${a[0]}!
+Reward: +${format(reward)} coins
+
+${a[0]} added to your animals.`,
+"good"
+);
+
+saveGame();
+
+}
+
+/* =========================
+   ANIMALS
+========================= */
+
+function animals(){
+
+print(`
+🐾 ANIMALS
+
+Rabbit: ${game.animals.rabbit}
+Fox: ${game.animals.fox}
+Wolf: ${game.animals.wolf}
+Bear: ${game.animals.bear}
+Dragon: ${game.animals.dragon}
+`);
+
+}
+
+/* =========================
+   INVENTORY
+========================= */
+
+function inventory(){
+
+print(`
+🎒 INVENTORY
+
+Stone: ${game.inventory.stone}
+Coal: ${game.inventory.coal}
+Iron: ${game.inventory.iron}
+Gold: ${game.inventory.gold}
+Diamond: ${game.inventory.diamond}
+`);
+
+}
+
+/* =========================
+   SELL
+========================= */
+
+function sell(){
+
+let total = 0;
+
+const values = {
+    rabbit:30,
+    fox:70,
+    wolf:150,
+    bear:350,
+    dragon:2000
+};
+
+for(const animal in game.animals){
+
+    total +=
+        game.animals[animal] *
+        values[animal];
+
+    game.animals[animal] = 0;
+}
+
+if(total <= 0){
+
+    print("❌ You have no animals to sell.","bad");
+    return;
+
+}
+
+game.balance += total;
+
+print(
+`💰 SOLD ALL ANIMALS
+You received ${format(total)} coins.`,
+"good"
+);
+
+saveGame();
+
+}
+
+/* =========================
+   DAILY
+========================= */
+
+function daily(){
+
+const today =
+    new Date().toISOString().slice(0,10);
+
+if(game.lastDaily === today){
+
+    print(
+"🎁 You already claimed your daily reward today.",
+"bad"
+    );
+
+    return;
+}
+
+const reward =
+    1000 + game.level*250;
+
+game.balance += reward;
+game.lastDaily = today;
+
+addXP(30);
+
+print(
+`🎁 DAILY REWARD
+
+You received ${format(reward)} coins!`,
+"good"
+);
+
+saveGame();
+
+}
+
+/* =========================
+   UPGRADES
+========================= */
+
+function upgradeInfo(){
+
+const prices = {
+    mining:5000*(game.upgrades.mining+1),
+    luck:7500*(game.upgrades.luck+1),
+    hunting:6000*(game.upgrades.hunting+1)
+};
+
+print(`
+⬆️ UPGRADES
+
+Mining Lv.${game.upgrades.mining}
+Cost: ${format(prices.mining)}
+Command: owo upgrade mining
+
+Luck Lv.${game.upgrades.luck}
+Cost: ${format(prices.luck)}
+Command: owo upgrade luck
+
+Hunting Lv.${game.upgrades.hunting}
+Cost: ${format(prices.hunting)}
+Command: owo upgrade hunting
+`);
+
+}
+
+function buyUpgrade(type){
+
+if(!game.upgrades.hasOwnProperty(type)){
+
+    print(
+"❌ Unknown upgrade. Use owo upgrade.",
+"bad"
+    );
+
+    return;
+}
+
+const price =
+    type === "mining"
+    ? 5000*(game.upgrades.mining+1)
+    : type === "luck"
+    ? 7500*(game.upgrades.luck+1)
+    : 6000*(game.upgrades.hunting+1);
+
+if(game.balance < price){
+
+    print(
+`❌ You need ${format(price)} coins.`,
+"bad"
+    );
+
+    return;
+}
+
+game.balance -= price;
+game.upgrades[type]++;
+
+print(
+`⬆️ UPGRADE PURCHASED
+
+${type.toUpperCase()} is now level ${game.upgrades[type]}.`,
+"good"
+);
+
+saveGame();
+
+}
+
+/* =========================
+   EMERGENCY MONEY
+========================= */
+
+function emergency(amount){
+
+if(game.balance > 0){
+
+    print(
+"🆘 Emergency money is only available when your balance is 0.",
+"bad"
+    );
+
+    return;
+}
+
+if(!Number.isFinite(amount) || amount <= 0){
+
+    print(
+"Usage: owo emergency <amount>",
+"bad"
+    );
+
+    return;
+}
+
+game.balance = Math.floor(amount);
+
+print(
+`🆘 EMERGENCY FUND
+
+You received ${format(amount)} coins.
+
+Balance: ${format(game.balance)}`,
+"gold"
+);
+
+saveGame();
+
+}
+
+/* =========================
+   VALIDATE BET
+========================= */
+
+function validBet(amount){
+
+if(!Number.isFinite(amount) ||
+   amount <= 0){
+
+    print(
+"❌ Enter a valid amount.",
+"bad"
+    );
+
+    return false;
+}
+
+if(amount > game.balance){
+
+    print(
+`❌ Not enough coins.
+Balance: ${format(game.balance)}`,
+"bad"
+    );
+
+    return false;
+}
+
+return true;
+
+}
+
+/* =========================
+   COMMAND PARSER
+========================= */
+
+function execute(raw){
+
+const original = raw.trim();
+
+if(!original) return;
+
+commandEcho(original);
+
+game.history.push(original);
+
+let parts =
+    original.toLowerCase().split(/\s+/);
+
+if(parts[0] === "owo")
+    parts.shift();
+
+const command = parts[0];
+
+const amount =
+    parts[1] !== undefined
+    ? Number(parts[1].replace(/,/g,""))
+    : NaN;
+
+switch(command){
+
+case "help":
+    help();
+    break;
+
+case "balance":
+case "bal":
+case "money":
+    balance();
+    break;
+
+case "profile":
+case "stats":
+    profile();
+    break;
+
+case "mine":
+    mine(amount);
+    break;
+
+case "cf":
+case "coinflip":
+    cf(amount);
+    break;
+
+case "bj":
+case "blackjack":
+    bj(amount);
+    break;
+
+case "slots":
+case "slot":
+    slots(amount);
+    break;
+
+case "hunt":
+    hunt();
+    break;
+
+case "animals":
+case "animal":
+    animals();
+    break;
+
+case "inv":
+case "inventory":
+    inventory();
+    break;
+
+case "sell":
+    sell();
+    break;
+
+case "daily":
+    daily();
+    break;
+
+case "upgrade":
+
+    if(parts[1])
+        buyUpgrade(parts[1]);
+    else
+        upgradeInfo();
+
+    break;
+
+case "emergency":
+case "em":
+
+    emergency(amount);
+    break;
+
+case "clear":
+    consoleBox.innerHTML = "";
+    break;
+
+case "reset":
+
+    if(confirm("Reset ALL saved progress?")){
+
+        localStorage.removeItem(SAVE_KEY);
+        location.reload();
+
+    }
+
+    break;
+
+default:
+
+print(
+`❌ Unknown command: ${command}
+
+Type owo help`,
+"bad"
+);
+
+}
+
+saveGame();
+
+}
+
+/* =========================
+   INPUT + HISTORY
+========================= */
+
+let historyIndex = -1;
+
+function runInput(){
+
+const value = input.value.trim();
+
+if(!value) return;
+
+execute(value);
+
+input.value = "";
+
+historyIndex = -1;
+
+}
+
+input.addEventListener("keydown",e=>{
+
+if(e.key === "Enter"){
+
+    runInput();
+
+}
+
+if(e.key === "ArrowUp"){
+
+    if(game.history.length){
+
+        historyIndex =
+            Math.min(
+                historyIndex+1,
+                game.history.length-1
+            );
+
+        input.value =
+            game.history[
+                game.history.length-1-historyIndex
+            ];
+    }
+
+    e.preventDefault();
+
+}
+
+if(e.key === "ArrowDown"){
+
+    if(historyIndex > 0){
+
+        historyIndex--;
+
+        input.value =
+            game.history[
+                game.history.length-1-historyIndex
+            ];
+
+    }else{
+
+        historyIndex = -1;
+        input.value = "";
+
+    }
+
+    e.preventDefault();
+
+}
+
+});
+
+/* =========================
+   START
+========================= */
+
+loadGame();
+updateUI();
+
+print(
+`WOOF COMMAND TERMINAL
+────────────────────────────
+
+Welcome back!
+
+Balance: ${format(game.balance)} coins
+Level: ${game.level}
+
+Type "owo help" to see commands.
+
+This is a fictional game economy.
+Coins have no real-world value.
+`,
+"bot"
+);
+
+</script>
+
+</body>
+  </html>
